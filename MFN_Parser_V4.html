@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFN Parser - Version 3.2 (Structural Logic)</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 12px;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+            --dark-panel: #1e293b;
+            --dark-result: #000000;
+            --accent-blue: #38bdf8;
+            --accent-purple: #a855f7;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: var(--bg); 
+            color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 2rem; 
+        }
+
+        .container { 
+            max-width: 1100px; 
+            margin: 0 auto; 
+            background: var(--card-bg); 
+            padding: 2.5rem; 
+            border-radius: var(--radius); 
+            border: 1px solid var(--border); 
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); 
+        }
+
+        /* --- MFN DESCRIPTION SECTION --- */
+        .mfn-header {
+            margin-bottom: 2.5rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--bg);
+        }
+        .mfn-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .mfn-title span {
+            font-size: 12px;
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            vertical-align: middle;
+        }
+        .mfn-desc {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-muted);
+            max-width: 900px;
+        }
+        .mfn-desc p { margin-bottom: 12px; }
+        .mfn-desc b { color: var(--text-main); }
+
+        .section-label { 
+            font-size: 11px; 
+            font-weight: 700; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            margin-bottom: 12px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .input-group { display: flex; gap: 10px; margin-bottom: 1.5rem; }
+        .expr-input { 
+            flex: 1; 
+            padding: 14px 18px; 
+            border-radius: 8px; 
+            border: 1px solid var(--border); 
+            font-family: var(--font-mono); 
+            font-size: 16px; 
+        }
+
+        .parse-btn { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 0 28px; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            cursor: pointer; 
+        }
+
+        .reduce-btn {
+            background: var(--accent-purple);
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .reduce-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; }
+        .ex-btn { 
+            font-size: 12px; 
+            padding: 5px 14px; 
+            border-radius: 20px; 
+            border: 1px solid var(--border); 
+            background: white; 
+            cursor: pointer; 
+        }
+
+        .var-panel {
+            background: #f1f5f9;
+            padding: 16px;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            display: none;
+            border: 1px solid var(--border);
+        }
+        .var-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+        }
+        .var-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+        .var-label { font-family: var(--font-mono); font-weight: 700; color: var(--primary); }
+        .var-input { width: 100%; border: none; font-family: var(--font-mono); outline: none; font-size: 14px; background: transparent; }
+
+        .tree-viewport {
+            width: 100%;
+            height: 500px;
+            background: #0f172a;
+            border-radius: var(--radius);
+            overflow: hidden;
+            position: relative;
+            cursor: grab;
+            margin-bottom: 2.5rem;
+            user-select: none;
+        }
+        .tree-viewport:active { cursor: grabbing; }
+
+        .tree-canvas {
+            position: absolute;
+            transform-origin: center top; 
+            display: inline-block;
+            padding: 40px;
+            min-width: 100%;
+            text-align: center;
+            will-change: transform;
+        }
+
+        .tokens-row { 
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; padding: 16px; 
+            background: var(--dark-panel); border-radius: 10px; 
+        }
+        
+        .token { font-family: var(--font-mono); font-size: 13px; padding: 4px 12px; border-radius: 6px; font-weight: 600; }
+        .token-num { background: #dcfce7; color: #166534; }
+        .token-var { background: #dbeafe; color: #1e40af; }
+        .token-sep { background: #fee2e2; color: #991b1b; }
+        .token-pow { background: #fae8ff; color: #86198f; }
+        .token-impl { color: #94a3b8; font-size: 20px; }
+
+        .eval-strip { 
+            margin-top: 1rem; padding: 24px; background: var(--dark-result); color: #4ade80; 
+            border-radius: 10px; font-family: var(--font-mono); font-size: 1.8rem; text-align: center; font-weight: 800; margin-bottom: 2rem;
+        }
+
+        .recon-strip { 
+            margin-top: 1rem; padding: 20px; background: var(--dark-panel); color: var(--accent-blue); 
+            border-radius: 10px; font-family: var(--font-mono); text-align: center; font-size: 1.2rem;
+        }
+
+        .tree-node { display: inline-flex; flex-direction: column; align-items: center; position: relative; vertical-align: top; }
+        .node-content { 
+            z-index: 2; min-width: 42px; height: 32px; display: flex; align-items: center; justify-content: center; 
+            padding: 0 14px; border-radius: 8px; font-family: var(--font-mono); font-size: 13px; font-weight: 700; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); 
+            transition: all 0.3s ease;
+        }
+        
+        .lbl-SEP { background: #f87171; color: #fff; }
+        .lbl-P   { background: #818cf8; color: #fff; }
+        .lbl-E   { background: #fb923c; color: #fff; }
+        .lbl-num { background: #4ade80; color: #064e3b; }
+        .lbl-var { background: #60a5fa; color: #fff; }
+
+        .children { display: flex; gap: 12px; position: relative; margin-top: 25px; justify-content: center; }
+        .connector-svg { position: absolute; top: 32px; left: 0; width: 100%; height: 25px; pointer-events: none; z-index: 1; overflow: visible; }
+        .connector-line { fill: none; stroke: #475569; stroke-width: 1.5px; }
+
+        .reset-btn { font-size: 10px; padding: 4px 10px; background: #475569; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #0f172a; --card-bg: #1e293b; --border: #334155; --text-main: #f1f5f9; }
+            .var-panel { background: #1e293b; }
+            .var-item { background: #0f172a; border-color: #334155; }
+            .var-input { color: white; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- --- MFN DESCRIPTION SECTION --- -->
+    <header class="mfn-header">
+        <div class="mfn-title">Monomial-First Notation <span>v3.2</span></div>
+        <div class="mfn-desc">
+
+<p><b>Monomial First Notation (MFN)</b> is a proposed standardization of mathematical grammar designed to eliminate the ambiguity found in standard operational precedence (PEMDAS/BODMAS). By defining parentheses and juxtaposition as explicit binary operations with the highest priority, MFN transforms mathematical expressions from linear strings of instructions into a predictable hierarchy of "Monomial Atoms.  "</p>
+
+            <p>Mathematical notation, as commonly written in infix form, relies on procedural conventions such as order of operations (PEMDAS) to resolve ambiguity. These rules—prioritizing parentheses, exponents, multiplication/division, and addition/subtraction—emerged historically as a way to linearize inherently hierarchical structures. While effective, they introduce ambiguity in edge cases, particularly when implicit multiplication (e.g., adjacency) interacts with explicit operators. Expressions such as 6/2(3) illustrate this tension, as their interpretation depends on convention rather than structure.</p>
+            <p>MFN proposes a structural alternative. Instead of treating expressions as linear strings interpreted through precedence rules, MFN treats them as <b>compositions of monomials</b>—each a cohesive unit formed through adjacency and exponentiation. Explicit operators act only as separators between these units. In this framework, expressions are represented as a hierarchical structure rather than a sequence.</p>
+            <p>Computation in MFN is defined as a process of <b>structural reduction</b> over this hierarchy. Unlike Reverse Polish Notation (RPN), which encodes a fixed sequence of operations, the system evolves through local transformations toward irreducible forms. This eliminates reliance on procedural precedence rules and replaces them with explicit structural relationships, yielding a representation that is both unambiguous and lossless with respect to its original form.</p>
+	    <p>The proposed framework is suitable for educational tools, deterministic calculators, parser design, and symbolic expression systems.
+MFN reinterprets parenthesized adjacency as a formal binary operation with implied identity shorthand. <b>MFN preserves familiar notation while producing deterministic parse trees and removing common ambiguities.  It offers a bridge between traditional arithmetic notation and modern parser-oriented computation systems.</b></p>
+
+	<p>Another key difference is we treat parentheses not as simple grouping symbol but as a marker for a factor of a monomial.  Note this does not apply to mathematical functions like sin(x).  Every parentheses or algebraic variable gets a binary P node in the tree.  This creates a spine structure with a leading numeric coefficient, and a sequence of factors each with their own units and exponents. MFN allows for round trip conversion between linear infix notation, and internal tree structure with no ambiguity.  MFN is able to differentiate between x and (x), which most systems don't since they immediately throw away the parentheses.  This is interpreted as a variable x, inside of another variable (the parentheses) and results in two P nodes in the tree.  Fully expanded it is 1(1x^1)^1.</p>
+
+	<p>MFN proves that linearity does not have to mean ambiguity.  If we define a Monomial as an unbreakable recursive chain (an Atom), then the "Order of Operations" is simplified.  Complete the Atom before you interact with it.  We don't need fractions or complex formatting to be clear. We just need to stop treating math as a list of actions and start treating it as a description of objects. MFN keeps the convenience Cajori wanted, but restores the structural honesty that Lennes fought for. This reconciles the two sides of the 100-year war.
+</p>
+
+        </div>
+    </header>
+
+    <div class="section-label">Quick Examples</div>
+    <div class="examples" id="examples"></div>
+    
+    <div class="input-group">
+        <input class="expr-input" id="expr" value="6/2(1+2)" />
+        <button class="parse-btn" id="parseBtn">Evaluate MFN</button>
+        <button class="reduce-btn" id="reduceBtn" disabled>Auto-Reduce</button>
+    </div>
+
+    <div class="var-panel" id="varPanel">
+        <div class="section-label">Variable Injection</div>
+        <div class="var-grid" id="varGrid"></div>
+    </div>
+
+    <div id="output">
+        <div class="section-label">Token Stream</div>
+        <div class="tokens-row" id="tokenBox"></div>
+        <div class="section-label">Evaluation Result</div>
+        <div class="eval-strip" id="evalBox">---</div>
+        <div class="section-label">Binary Tree <button class="reset-btn" onclick="resetView()">Reset View</button></div>
+        <div class="tree-viewport" id="viewport">
+            <div class="tree-canvas" id="canvas"></div>
+        </div>
+        <div class="section-label">Reconstruction</div>
+        <div class="recon-strip" id="reconBox"></div>
+    </div>
+</div>
+
+<script>
+let scale = 0.95, translateX = 0, translateY = 30, isDragging = false, startX, startY;
+let currentTree = null, varValues = {};
+
+const EXAMPLES = ["x", "(x)", "xyz", "x(y)z", "6/2(1+2)", "3x^2y^3z^4w^5", "2x + 2y * 3z", "(2)(2)(2)(2)"];
+const exampleContainer = document.getElementById('examples');
+EXAMPLES.forEach(ex => {
+    const btn = document.createElement('button');
+    btn.className = 'ex-btn';
+    btn.textContent = ex;
+    btn.onclick = () => { document.getElementById('expr').value = ex; parse(); };
+    exampleContainer.appendChild(btn);
+});
+
+const viewport = document.getElementById('viewport');
+const canvas = document.getElementById('canvas');
+
+viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY * -0.001;
+    scale = Math.min(Math.max(0.1, scale + delta), 3);
+    applyTransform();
+}, { passive: false });
+
+viewport.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    startX = e.clientX - translateX;
+    startY = e.clientY - translateY;
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    translateX = e.clientX - startX;
+    translateY = e.clientY - startY;
+    applyTransform();
+});
+
+window.addEventListener('mouseup', () => isDragging = false);
+
+function applyTransform() {
+    canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+}
+
+function resetView() {
+    scale = 0.95;
+    translateY = 30;
+    translateX = (viewport.offsetWidth / 2) - (canvas.scrollWidth * scale / 2);
+    applyTransform();
+}
+
+function tokenize(s) {
+    s = s.replace(/\s+/g,'');
+    let r = [], i = 0;
+    while(i < s.length) {
+        if(/\d/.test(s[i])) {
+            let n = ''; while(i < s.length && /[\d.]/.test(s[i])) n += s[i++];
+            r.push({type:'num', val:n});
+        } else if(/[a-zA-Z]/.test(s[i])) {
+            r.push({type:'var', val:s[i++]});
+        } else {
+            let c = s[i++], m = {'^':'pow','*':'mul','/':'div','+':'add','-':'sub','(':'lp',')':'rp'};
+            if(!m[c]) throw new Error('Unknown: ' + c);
+            r.push({type:m[c], val:c});
+        }
+    }
+    let o = [];
+    for(let j = 0; j < r.length; j++) {
+        o.push(r[j]);
+        if(j + 1 < r.length && new Set(['num','var','rp']).has(r[j].type) && new Set(['num','var','lp']).has(r[j+1].type))
+            o.push({type:'impl', val:'·'});
+    }
+    return o;
+}
+
+function splitOnExplicit(t) {
+    let s = [], c = [], op = null, d = 0;
+    for(let x of t) {
+        if(x.type === 'lp') d++; if(x.type === 'rp') d--;
+        if(d === 0 && ['add','sub','mul','div'].includes(x.type)) {
+            if(c.length === 0 && op === null) c.push(x);
+            else { s.push({op, tokens:c}); c = []; op = x.val; }
+        } else c.push(x);
+    }
+    if(c.length > 0) s.push({op, tokens:c});
+    return s;
+}
+
+function parseMono(t) {
+    let p = 0;
+    const pk = () => t[p], cs = () => t[p++];
+    function f() {
+        let r = b();
+        let e = '1';
+        if(pk() && pk().type === 'pow') { cs(); e = ex(); }
+        return [{...r, exp:e}];
+    }
+    function ex() {
+        let n = false;
+        while(pk() && (pk().type === 'sub' || pk().type === 'add')) if(cs().type === 'sub') n = !n;
+        let x = pk(); cs();
+        if(x.type === 'lp') {
+            let i = [], d = 1;
+            while(p < t.length) {
+                let k = cs(); if(k.type === 'lp') d++; if(k.type === 'rp') { d--; if(d === 0) break; }
+                i.push(k);
+            }
+            return '(' + i.map(z => z.val).join('') + ')';
+        }
+        return (n ? '-' : '') + x.val;
+    }
+    function b() {
+        let n = false;
+        while(pk() && (pk().type === 'sub' || pk().type === 'add')) if(cs().type === 'sub') n = !n;
+        let x = pk();
+        if(x.type === 'num') { cs(); return {base:x.val, kind:'num', negated:n}; }
+        if(x.type === 'var') { cs(); return {base:x.val, kind:'var', negated:n}; }
+        if(x.type === 'lp') {
+            cs(); let i = [], d = 1;
+            while(p < t.length) {
+                let k = cs(); if(k.type === 'lp') d++; if(k.type === 'rp') { d--; if(d === 0) break; }
+                i.push(k);
+            }
+            return {base:{subTree:buildExprTree(i)}, kind:'sub', negated:n};
+        }
+        throw Error('Token: ' + x.val);
+    }
+    let r = []; r.push(...f());
+    while(pk() && pk().type === 'impl') { cs(); r.push(...f()); }
+    return r;
+}
+
+function buildPESpine(f) {
+    let cv = 1, vf = [];
+    for(let x of f) {
+        if(x.negated) cv *= -1;
+        if(x.kind === 'num') {
+            let b = parseFloat(x.base), e = parseFloat(x.exp);
+            cv *= isNaN(e) ? b : Math.pow(b, e);
+        } else vf.push(x);
+    }
+    function bk(v) {
+        if(v.length === 0) return {type:'coeff', val:cv};
+        let r = v[v.length - 1], rs = v.slice(0, v.length - 1);
+        return {type:'P', c:bk(rs), e:{type:'E', base:r.kind === 'sub' ? {type:'sub', subTree:r.base.subTree} : {type:'var', val:r.base}, exp:r.exp}};
+    }
+    return bk(vf);
+}
+
+function buildExprTree(t) {
+    let s = splitOnExplicit(t);
+    if(s.length === 0) return null;
+    let nodes = s.map(z => ({ op: z.op, node: buildPESpine(parseMono(z.tokens)) }));
+    for (let i = 1; i < nodes.length; i++) {
+        if (nodes[i].op === '*' || nodes[i].op === '/') {
+            nodes[i-1].node = { type: 'SEP', op: nodes[i].op, left: nodes[i-1].node, right: nodes[i].node };
+            nodes.splice(i, 1); i--;
+        }
+    }
+    let tr = nodes[0].node;
+    for (let i = 1; i < nodes.length; i++) { tr = { type: 'SEP', op: nodes[i].op, left: tr, right: nodes[i].node }; }
+    return tr;
+}
+
+function evalNode(n) {
+    if(n.type === 'coeff') return n.val;
+    if(n.type === 'var') return varValues[n.val] !== undefined ? varValues[n.val] : NaN;
+    if(n.type === 'sub') return evalNode(n.subTree);
+    if(n.type === 'E') {
+        let b = evalNode(n.base);
+        let e = isNaN(parseFloat(n.exp)) ? evalNode(tokenize(n.exp.replace(/[()]/g,''))[0]) : parseFloat(n.exp);
+        return Math.pow(b, e);
+    }
+    if(n.type === 'P') return evalNode(n.c) * evalNode(n.e);
+    if(n.type === 'SEP') {
+        let l = evalNode(n.left), r = evalNode(n.right);
+        if(n.op === '+') return l + r; if(n.op === '-') return l - r;
+        if(n.op === '*') return l * r; if(n.op === '/') return l / r;
+    }
+    return 0;
+}
+
+function isReducible(n) {
+    if (n.type === 'coeff') return false;
+    if (n.type === 'var') return varValues[n.val] !== undefined;
+    return true;
+}
+
+function stepReduce(n) {
+    if (n.type === 'var' && varValues[n.val] !== undefined) {
+        return { type: 'coeff', val: varValues[n.val] };
+    }
+    if (n.type === 'coeff' || n.type === 'var') return n;
+    
+    if (n.type === 'sub') {
+        n.subTree = stepReduce(n.subTree);
+        if (n.subTree.type === 'coeff') return n.subTree;
+        return n;
+    }
+    
+    if (n.type === 'E') {
+        n.base = stepReduce(n.base);
+        if (n.base.type === 'coeff' && !isNaN(parseFloat(n.exp))) return { type: 'coeff', val: evalNode(n) };
+        return n;
+    }
+
+    if (n.type === 'P') {
+        if (isReducible(n.c)) { n.c = stepReduce(n.c); return n; }
+        if (isReducible(n.e)) { n.e = stepReduce(n.e); return n; }
+        if (n.c.type === 'coeff' && n.e.type === 'coeff') return { type: 'coeff', val: evalNode(n) };
+        return n;
+    }
+
+    if (n.type === 'SEP') {
+        if (isReducible(n.left)) { n.left = stepReduce(n.left); return n; }
+        if (isReducible(n.right)) { n.right = stepReduce(n.right); return n; }
+        if (n.left.type === 'coeff' && n.right.type === 'coeff') return { type: 'coeff', val: evalNode(n) };
+        return n;
+    }
+    return n;
+}
+
+async function runAutoReduce() {
+    const btn = document.getElementById('reduceBtn');
+    btn.disabled = true;
+    
+    let lastState = JSON.stringify(currentTree);
+    while (true) {
+        await new Promise(r => setTimeout(r, 600));
+        let nextTree = stepReduce(JSON.parse(lastState));
+        let nextState = JSON.stringify(nextTree);
+        
+        if (nextState === lastState) break; 
+        
+        currentTree = nextTree;
+        lastState = nextState;
+        updateOutput();
+        
+        if (currentTree.type === 'coeff') break;
+    }
+    btn.disabled = false;
+}
+
+function getUniqueVars(n, set = new Set()) {
+    if(!n) return set;
+    if(n.type === 'var') set.add(n.val);
+    if(n.type === 'sub') getUniqueVars(n.subTree, set);
+    if(n.type === 'E') getUniqueVars(n.base, set);
+    if(n.type === 'P') { getUniqueVars(n.c, set); getUniqueVars(n.e, set); }
+    if(n.type === 'SEP') { getUniqueVars(n.left, set); getUniqueVars(n.right, set); }
+    return set;
+}
+
+function reconstruct(n) {
+    if(!n) return '';
+    if(n.type === 'coeff') return String(parseFloat(Number(n.val).toFixed(4)));
+    if(n.type === 'var') return n.val;
+    if(n.type === 'sub') return '(' + reconstruct(n.subTree) + ')';
+    if(n.type === 'E') { let b = reconstruct(n.base); return n.exp === '1' ? b : b + '^' + n.exp; }
+    if(n.type === 'P') { 
+        let c = reconstruct(n.c), e = reconstruct(n.e); 
+        if(c === '1') return e; if(c === '-1') return '-' + e; 
+        return c + e; 
+    }
+    if(n.type === 'SEP') return reconstruct(n.left) + n.op + reconstruct(n.right);
+    return '';
+}
+
+function renderTree(node) {
+    if (!node) return '';
+    let label = '', cls = '', children = [];
+    if (node.type === 'coeff') { label = String(parseFloat(Number(node.val).toFixed(4))); cls = 'lbl-num'; }
+    else if (node.type === 'var') { label = node.val; cls = 'lbl-var'; }
+    else if (node.type === 'sub') { return renderTree(node.subTree); }
+    else if (node.type === 'E') { label = 'E'; cls = 'lbl-E'; children = [{tag: 'unit', node: node.base}, {tag: 'exp', node: {type:'coeff', val: node.exp}}]; }
+    else if (node.type === 'P') { label = 'P'; cls = 'lbl-P'; children = [{tag: 'c', node: node.c}, {tag: 'e', node: node.e}]; }
+    else if (node.type === 'SEP') { label = node.op; cls = 'lbl-SEP'; children = [{tag: 'L', node: node.left}, {tag: 'R', node: node.right}]; }
+
+    return `<div class="tree-node"><div class="node-content ${cls}">${label}</div>${children.length > 0 ? `<svg class="connector-svg"><path class="connector-line" d=""></path></svg><div class="children">${children.map(c => `<div class="child-col"><div class="section-label" style="font-size:7px; margin-bottom:2px;">${c.tag}</div>${renderTree(c.node)}</div>`).join('')}</div>` : ''}</div>`;
+}
+
+function updateVar(name, val) {
+    varValues[name] = val === "" ? undefined : parseFloat(val);
+    updateOutput();
+}
+
+function updateOutput() {
+    const result = evalNode(currentTree);
+    const tokens = tokenize(document.getElementById('expr').value);
+    
+    document.getElementById('tokenBox').innerHTML = tokens.map(t => `<span class="token ${t.type === 'impl' ? 'token-impl' : (['add','sub','mul','div'].includes(t.type) ? 'token-sep' : 'token-' + t.type)}">${t.val}</span>`).join('');
+    document.getElementById('evalBox').innerHTML = isNaN(result) ? 'Algebraic Expression' : parseFloat(result.toFixed(6));
+    document.getElementById('canvas').innerHTML = renderTree(currentTree);
+    document.getElementById('reconBox').innerHTML = reconstruct(currentTree);
+    
+    setTimeout(() => { updateConnectors(); }, 50);
+}
+
+function parse() {
+    const src = document.getElementById('expr').value.trim();
+    try {
+        const tokens = tokenize(src);
+        currentTree = buildExprTree(tokens);
+        const vars = Array.from(getUniqueVars(currentTree)).sort();
+        const varPanel = document.getElementById('varPanel');
+        const varGrid = document.getElementById('varGrid');
+        
+        if (vars.length > 0) {
+            varPanel.style.display = 'block';
+            varGrid.innerHTML = vars.map(v => `
+                <div class="var-item">
+                    <span class="var-label">${v}</span>
+                    <input class="var-input" type="number" placeholder="None" value="${varValues[v] !== undefined ? varValues[v] : ''}" oninput="updateVar('${v}', this.value)">
+                </div>
+            `).join('');
+        } else {
+            varPanel.style.display = 'none';
+        }
+        updateOutput();
+        document.getElementById('reduceBtn').disabled = false;
+        setTimeout(resetView, 100);
+    } catch(e) { alert(e.message); }
+}
+
+function updateConnectors() {
+    document.querySelectorAll('.tree-node').forEach(parent => {
+        const svg = parent.querySelector(':scope > .connector-svg');
+        const childrenContainer = parent.querySelector(':scope > .children');
+        if (!svg || !childrenContainer) return;
+        const parentBtn = parent.querySelector(':scope > .node-content');
+        const childCols = childrenContainer.querySelectorAll(':scope > .child-col');
+        const px = parentBtn.offsetLeft + (parentBtn.offsetWidth / 2);
+        let d = "";
+        childCols.forEach(col => {
+            const childNode = col.querySelector(':scope > .tree-node > .node-content');
+            if (!childNode) return;
+            const cx = col.offsetLeft + childNode.offsetLeft + (childNode.offsetWidth / 2);
+            d += `M ${px} 0 C ${px} 12, ${cx} 12, ${cx} 25 `;
+        });
+        svg.setAttribute('width', childrenContainer.offsetWidth);
+        svg.setAttribute('viewBox', `0 0 ${childrenContainer.offsetWidth} 25`);
+        svg.querySelector('path').setAttribute('d', d);
+    });
+}
+
+window.onload = parse;
+document.getElementById('parseBtn').onclick = parse;
+document.getElementById('reduceBtn').onclick = runAutoReduce;
+</script>
+</body>
+</html>
