@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MFN Parser - Version 3.2 (Structural Logic)</title>
+    <title>MFN Parser - Version 4.0 (Structural Logic)</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -236,7 +236,7 @@
 	    <p>The proposed framework is suitable for educational tools, deterministic calculators, parser design, and symbolic expression systems.
 MFN reinterprets parenthesized adjacency as a formal binary operation with implied identity shorthand. <b>MFN preserves familiar notation while producing deterministic parse trees and removing common ambiguities.  It offers a bridge between traditional arithmetic notation and modern parser-oriented computation systems.</b></p>
 
-	<p>Another key difference is we treat parentheses not as simple grouping symbol but as a marker for a factor of a monomial.  Note this does not apply to mathematical functions like sin(x).  Every parentheses or algebraic variable gets a binary P node in the tree.  This creates a spine structure with a leading numeric coefficient, and a sequence of factors each with their own units and exponents. MFN allows for round trip conversion between linear infix notation, and internal tree structure with no ambiguity.  MFN is able to differentiate between x and (x), which most systems don't since they immediately throw away the parentheses.  This is interpreted as a variable x, inside of another variable (the parentheses) and results in two P nodes in the tree.  Fully expanded it is 1(1x^1)^1.</p>
+	<p>Another key difference is we treat parentheses not as simple grouping symbol but as a marker for a factor of a monomial.  Note this does not apply to mathematical functions like sin(x).  Every parentheses or algebraic variable gets a binary P node in the tree.  P(a,b) = a*b.   M(a,b) = a*b.  There are two nodes that both map to multiplication but P is used for multiplying internal factors of a monomial, and M is used for multiplying two separate monomials.  This creates a spine structure with a leading numeric coefficient, and a sequence of factors each with their own units and exponents. MFN allows for round trip conversion between linear infix notation, and internal tree structure with no ambiguity.  MFN is able to differentiate between x and (x), which most systems don't since they immediately throw away the parentheses.  This is interpreted as a variable x, inside of another variable (the parentheses) and results in two P nodes in the tree.  Fully expanded it is 1(1x^1)^1.</p>
 
 	<p>MFN proves that linearity does not have to mean ambiguity.  If we define a Monomial as an unbreakable recursive chain (an Atom), then the "Order of Operations" is simplified.  Complete the Atom before you interact with it.  We don't need fractions or complex formatting to be clear. We just need to stop treating math as a list of actions and start treating it as a description of objects. MFN keeps the convenience Cajori wanted, but restores the structural honesty that Lennes fought for. This reconciles the two sides of the 100-year war.
 </p>
